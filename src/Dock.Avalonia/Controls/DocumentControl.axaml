@@ -29,7 +29,8 @@
                             CanCreateItem="{Binding CanCreateDocument}"
                             IsActive="{TemplateBinding IsActive}"
                             DockPanel.Dock="Top"
-                            DockProperties.IsDropArea="True">
+                            DockProperties.IsDropArea="True"
+                            Margin="0,0,0,-1">
             <DocumentTabStrip.Styles>
               <Style Selector="DocumentTabStripItem">
                 <Setter Property="IsActive" Value="{Binding $parent[DocumentTabStrip].IsActive}" />
@@ -37,7 +38,8 @@
             </DocumentTabStrip.Styles>
           </DocumentTabStrip>
           <Grid x:Name="PART_Grid"
-                IsVisible="{Binding #PART_TabStrip.IsVisible}" />
+                IsVisible="{Binding #PART_TabStrip.IsVisible}"
+                Margin="0,0" />
           <Border x:Name="PART_Border">
             <DockableControl DataContext="{Binding ActiveDockable}"
                              TrackingMode="Visible">
@@ -56,18 +58,22 @@
     </Setter>
 
     <Style Selector="^/template/ Grid#PART_Grid">
-      <Setter Property="Background" Value="{DynamicResource DockThemeBorderLowBrush}" />
-      <Setter Property="Height" Value="2" />
+      <Setter Property="Background" Value="{DynamicResource border-primary}" />
+      <Setter Property="Height" Value="1" />
       <Setter Property="DockPanel.Dock" Value="Top" />
     </Style>
 
     <Style Selector="^:active /template/ Grid#PART_Grid">
-      <Setter Property="Background" Value="{DynamicResource DockApplicationAccentBrushLow}" />
+      <Setter Property="Background" Value="{DynamicResource bg-accent}" />
     </Style>
 
     <Style Selector="^/template/ Border#PART_Border">
       <Setter Property="BorderBrush" Value="{DynamicResource DockThemeBorderLowBrush}" />
-      <Setter Property="BorderThickness" Value="1,1,1,1" />
+      <Setter Property="BorderThickness" Value="1,0,1,1" />
+    </Style>
+
+    <Style Selector="^:active /template/ Border#PART_Border">
+      <Setter Property="BorderBrush" Value="{DynamicResource bg-accent}" />
     </Style>
 
   </ControlTheme>
