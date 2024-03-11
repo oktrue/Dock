@@ -1,13 +1,18 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Dock.Avalonia.Internal;
 using Dock.Model;
+using Dock.Model.Controls;
 using Dock.Model.Core;
 
 namespace Dock.Avalonia.Controls;
@@ -20,7 +25,7 @@ public class HostWindow : Window, IHostWindow
 {
     private readonly DockManager _dockManager;
     private readonly HostWindowState _hostWindowState;
-    private Control? _chromeGrip;
+    private List<Control> _chromeGrips = new();
     private HostWindowTitleBar? _hostWindowTitleBar;
     private bool _mouseDown, _draggingWindow;
 
@@ -29,6 +34,12 @@ public class HostWindow : Window, IHostWindow
     /// </summary>
     public static readonly StyledProperty<bool> IsToolWindowProperty = 
         AvaloniaProperty.Register<HostWindow, bool>(nameof(IsToolWindow));
+
+    /// <summary>
+    /// Define <see cref="ToolChromeControlsWholeWindow"/> property.
+    /// </summary>
+    public static readonly StyledProperty<bool> ToolChromeControlsWholeWindowProperty =
+        AvaloniaProperty.Register<HostWindow, bool>(nameof(ToolChromeControlsWholeWindow));
 
     /// <inheritdoc/>
     protected override Type StyleKeyOverride => typeof(HostWindow);
@@ -40,6 +51,15 @@ public class HostWindow : Window, IHostWindow
     {
         get => GetValue(IsToolWindowProperty);
         set => SetValue(IsToolWindowProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets if the tool chrome controls the whole window.
+    /// </summary>
+    public bool ToolChromeControlsWholeWindow
+    {
+        get => GetValue(ToolChromeControlsWholeWindowProperty);
+        set => SetValue(ToolChromeControlsWholeWindowProperty, value);
     }
 
     /// <inheritdoc/>
@@ -64,7 +84,7 @@ public class HostWindow : Window, IHostWindow
 
         _dockManager = new DockManager();
         _hostWindowState = new HostWindowState(_dockManager, this);
-        UpdatePseudoClasses(IsToolWindow);
+        UpdatePseudoClasses(IsToolWindow, ToolChromeControlsWholeWindow);
     }
 
     /// <inheritdoc/>
@@ -87,24 +107,30 @@ public class HostWindow : Window, IHostWindow
         }
     }
 
+    private PixelPoint ClientPointToScreenRelativeToWindow(Point clientPoint)
+    {
+        var absScreenPoint = this.PointToScreen(clientPoint);
+        var absScreenWindowPoint = this.PointToScreen(new Point(0, 0));
+        var relativeScreenDiff = absScreenPoint - absScreenWindowPoint;
+        return relativeScreenDiff;
+    }
+
     private void MoveDrag(PointerPressedEventArgs e)
     {
+        if (!ToolChromeControlsWholeWindow)
+            return;
+
         if (Window?.Factory?.OnWindowMoveDragBegin(Window) != true)
         {
             return;
         }
 
         _mouseDown = true;
-        _hostWindowState.Process(e.GetPosition(this), EventType.Pressed);
+        _hostWindowState.Process(ClientPointToScreenRelativeToWindow(e.GetPosition(this)), EventType.Pressed);
 
         PseudoClasses.Set(":dragging", true);
         _draggingWindow = true;
         BeginMoveDrag(e);
-            
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            EndDrag(e);
-        }
     }
 
     private void EndDrag(PointerEventArgs e)
@@ -112,7 +138,7 @@ public class HostWindow : Window, IHostWindow
         PseudoClasses.Set(":dragging", false);
 
         Window?.Factory?.OnWindowMoveDragEnd(Window);
-        _hostWindowState.Process(e.GetPosition(this), EventType.Released);
+        _hostWindowState.Process(ClientPointToScreenRelativeToWindow(e.GetPosition(this)), EventType.Released);
         _mouseDown = false;
         _draggingWindow = false;
     }
@@ -122,7 +148,7 @@ public class HostWindow : Window, IHostWindow
     {
         base.OnPointerPressed(e);
 
-        if (_chromeGrip is { } && _chromeGrip.IsPointerOver)
+        if (_chromeGrips.Any(grip => grip.IsPointerOver))
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
@@ -148,12 +174,10 @@ public class HostWindow : Window, IHostWindow
         {
             Window.Save();
 
-            if ((_chromeGrip is { } && _chromeGrip.IsPointerOver)
-                || (_hostWindowTitleBar?.BackgroundControl is { } && (_hostWindowTitleBar?.BackgroundControl?.IsPointerOver ?? false))
-                && _mouseDown)
+            if (_mouseDown)
             {
                 Window.Factory?.OnWindowMoveDrag(Window);
-                _hostWindowState.Process(Position.ToPoint(1.0), EventType.Moved);
+                _hostWindowState.Process(Position, EventType.Moved);
             }
         }
     }
@@ -174,12 +198,33 @@ public class HostWindow : Window, IHostWindow
     {
         if (chromeControl.CloseButton is not null)
         {
-            chromeControl.CloseButton.Click += (_, _) => Exit();
+            chromeControl.CloseButton.Click += ChromeCloseClick;
         }
 
-        _chromeGrip = chromeControl.Grip;
+        if (chromeControl.Grip is { } grip)
+        {
+            _chromeGrips.Add(grip);
+        }
+
         ((IPseudoClasses)chromeControl.Classes).Add(":floating");
         IsToolWindow = true;
+    }
+
+    /// <summary>
+    /// Detaches grip to chrome.
+    /// </summary>
+    /// <param name="chromeControl">The chrome control.</param>
+    public void DetachGrip(ToolChromeControl chromeControl)
+    {
+        if (chromeControl.Grip is { } grip)
+        {
+            _chromeGrips.Remove(grip);
+        }
+
+        if (chromeControl.CloseButton is not null)
+        {
+            chromeControl.CloseButton.Click -= ChromeCloseClick;
+        }
     }
 
     /// <inheritdoc/>
@@ -189,13 +234,36 @@ public class HostWindow : Window, IHostWindow
 
         if (change.Property == IsToolWindowProperty)
         {
-            UpdatePseudoClasses(change.GetNewValue<bool>());
+            UpdatePseudoClasses(change.GetNewValue<bool>(), ToolChromeControlsWholeWindow);
+        }
+        else if (change.Property == ToolChromeControlsWholeWindowProperty)
+        {
+            UpdatePseudoClasses(IsToolWindow, change.GetNewValue<bool>());
         }
     }
 
-    private void UpdatePseudoClasses(bool isToolWindow)
+    private void UpdatePseudoClasses(bool isToolWindow, bool toolChromeControlsWholeWindow)
     {
         PseudoClasses.Set(":toolwindow", isToolWindow);
+        PseudoClasses.Set(":toolchromecontrolswindow", toolChromeControlsWholeWindow);
+    }
+
+    private int CountVisibleToolsAndDocuments(IDockable? dockable)
+    {
+        switch (dockable)
+        {
+            case ITool: return 1;
+            case IDocument: return 1;
+            case IDock dock:
+                return dock.VisibleDockables?.Sum(CountVisibleToolsAndDocuments) ?? 0;
+            default: return 0;
+        }
+    }
+
+    private void ChromeCloseClick(object? sender, RoutedEventArgs e)
+    {
+        if (CountVisibleToolsAndDocuments(DataContext as IRootDock) <= 1)
+            Exit();
     }
 
     /// <inheritdoc/>
@@ -276,7 +344,17 @@ public class HostWindow : Window, IHostWindow
                     Window.Factory?.OnWindowOpened(Window);
                 }
 
-                Show();
+                var ownerDockControl = Window?.Layout?.Factory?.DockControls.FirstOrDefault();
+                if (ownerDockControl is Control control && control.GetVisualRoot() is Window parentWindow)
+                {
+                    Title = parentWindow.Title;
+                    Icon = parentWindow.Icon;
+                    Show(parentWindow);
+                }
+                else
+                {
+                    Show();
+                }
             }
         }
     }
@@ -332,12 +410,6 @@ public class HostWindow : Window, IHostWindow
     {
         width = Width;
         height = Height;
-    }
-
-    /// <inheritdoc/>
-    public void SetTopmost(bool topmost)
-    {
-        Topmost = topmost;
     }
 
     /// <inheritdoc/>

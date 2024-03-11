@@ -10,7 +10,7 @@ namespace Dock.Avalonia.Internal;
 
 internal class WindowDragState
 {
-    public Point DragStartPoint { get; set; }
+    public PixelPoint DragStartPoint { get; set; }
     public bool PointerPressed { get; set; }
     public bool DoDragDrop { get; set; }
     public DockControl? TargetDockControl { get; set; }
@@ -18,7 +18,7 @@ internal class WindowDragState
     public Control? TargetDropControl { get; set; }
     public DragAction DragAction { get; set; }
 
-    public void Start(Point point)
+    public void Start(PixelPoint point)
     {
         DragStartPoint = point;
         PointerPressed = true;
@@ -121,7 +121,7 @@ internal class HostWindowState : IHostWindowState
 
         var layout = _hostWindow.Window?.Layout;
 
-        if (layout?.ActiveDockable is { } sourceDockable && _state.TargetDropControl.DataContext is IDockable targetDockable)
+        if (layout?.FocusedDockable is { } sourceDockable && _state.TargetDropControl.DataContext is IDockable targetDockable)
         {
             DockManager.Position = DockHelpers.ToDockPoint(point);
 
@@ -162,7 +162,7 @@ internal class HostWindowState : IHostWindowState
         }
     }
 
-    private bool IsMinimumDragDistance(Vector diff)
+    private bool IsMinimumDragDistance(PixelPoint diff)
     {
         return (Math.Abs(diff.X) > DockSettings.MinimumHorizontalDragDistance
                 || Math.Abs(diff.Y) > DockSettings.MinimumVerticalDragDistance);
@@ -173,7 +173,7 @@ internal class HostWindowState : IHostWindowState
     /// </summary>
     /// <param name="point">The pointer position.</param>
     /// <param name="eventType">The pointer event type.</param>
-    public void Process(Point point, EventType eventType)
+    public void Process(PixelPoint point, EventType eventType)
     {
         switch (eventType)
         {
@@ -219,7 +219,7 @@ internal class HostWindowState : IHostWindowState
 
                 if (_state.DoDragDrop == false)
                 {
-                    Vector diff = _state.DragStartPoint - point;
+                    var diff = _state.DragStartPoint - point;
                     var haveMinimumDragDistance = IsMinimumDragDistance(diff);
                     if (haveMinimumDragDistance)
                     {
@@ -232,9 +232,9 @@ internal class HostWindowState : IHostWindowState
                     break;
                 }
 
-                foreach (var visual in factory.DockControls)
+                foreach (var dockControl in factory.DockControls.GetZOrderedDockControls())
                 {
-                    if (visual is not DockControl dockControl || dockControl.Layout == _hostWindow.Window?.Layout)
+                    if (dockControl.Layout == _hostWindow.Window?.Layout)
                     {
                         continue;
                     }
@@ -283,15 +283,6 @@ internal class HostWindowState : IHostWindowState
                             Enter(_state.TargetPoint, _state.DragAction, _state.TargetDockControl);
                             break;
                         }
-                    }
-                    else
-                    {
-                        Leave();
-                        _state.TargetDockControl = null;
-                        _state.TargetPoint = default;
-                        _state.TargetDropControl = null;
-                        _state.DragAction = DragAction.Move;
-                        break;
                     }
                 }
 

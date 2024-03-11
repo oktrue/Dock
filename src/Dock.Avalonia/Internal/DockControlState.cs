@@ -139,6 +139,16 @@ internal class DockControlState : IDockControlState
 
         if (_state.DragControl.DataContext is IDockable sourceDockable && _state.DropControl.DataContext is IDockable targetDockable)
         {
+            if (sourceDockable is IDock dock)
+            {
+                sourceDockable = dock.ActiveDockable;
+            }
+
+            if (sourceDockable == null)
+            {
+                return;
+            }
+
             DockManager.Position = DockHelpers.ToDockPoint(point);
 
             if (relativeTo.GetVisualRoot() is null)
@@ -167,7 +177,7 @@ internal class DockControlState : IDockControlState
     /// <param name="dragAction">The input drag action.</param>
     /// <param name="activeDockControl">The active dock control.</param>
     /// <param name="dockControls">The dock controls.</param>
-    public void Process(Point point, Vector delta, EventType eventType, DragAction dragAction, Visual activeDockControl, IList<IDockControl> dockControls)
+    public void Process(Point point, Vector delta, EventType eventType, DragAction dragAction, DockControl activeDockControl, IList<IDockControl> dockControls)
     {
         if (activeDockControl is not { } inputActiveDockControl)
         {
@@ -187,6 +197,7 @@ internal class DockControlState : IDockControlState
                         break;
                     }
                     _state.Start(dragControl, point);
+                    activeDockControl.IsDraggingDock = true;
                 }
                 break;
             }
@@ -211,6 +222,7 @@ internal class DockControlState : IDockControlState
                 }
                 Leave();
                 _state.End();
+                activeDockControl.IsDraggingDock = false;
                 break;
             }
             case EventType.Moved:
@@ -240,14 +252,8 @@ internal class DockControlState : IDockControlState
                     Visual? targetDockControl = null;
                     Control? dropControl = null;
 
-                    foreach (var dockControl in dockControls)
+                    foreach (var inputDockControl in dockControls.GetZOrderedDockControls())
                     {
-                        if (dockControl is not Visual inputDockControl ||
-                            inputDockControl == inputActiveDockControl)
-                        {
-                            continue;
-                        }
-
                         if (inputActiveDockControl.GetVisualRoot() is null)
                         {
                             continue;
@@ -343,6 +349,7 @@ internal class DockControlState : IDockControlState
             {
                 Leave();
                 _state.End();
+                activeDockControl.IsDraggingDock = false;
                 break;
             }
             case EventType.WheelChanged:
