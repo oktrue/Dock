@@ -38,7 +38,7 @@
               CommandParameter="{Binding}"
               IsVisible="{Binding CanClose}"/>
   </ContextMenu>
-  
+
   <ControlTheme x:Key="{x:Type DocumentTabStripItem}" TargetType="DocumentTabStripItem">
 
     <Setter Property="(TextElement.FontSize)" Value="{DynamicResource DockFontSizeNormal}" />
@@ -47,17 +47,20 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource DockThemeForegroundBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource DockThemeBorderLowBrush}" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="8,8,0,0" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
     <Setter Property="Margin" Value="0" />
-    <Setter Property="Padding" Value="4 0 4 0" />
+    <Setter Property="Padding" Value="4 0 8 0" />
 
     <Setter Property="Template" x:DataType="core:IDockable">
       <ControlTemplate>
+        <Grid>
           <Border Background="{TemplateBinding Background}"
                   TextElement.FontFamily="{TemplateBinding FontFamily}"
                   TextElement.FontSize="{TemplateBinding FontSize}"
                   TextElement.FontWeight="{TemplateBinding FontWeight}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   Padding="{TemplateBinding Padding}"
@@ -104,6 +107,10 @@
               </StackPanel>
             </DockableControl>
           </Border>
+          <Border x:Name="PART_DecorationBorder" IsHitTestVisible="False" BorderThickness="0,0,0,1" />
+        </Grid>
+
+
       </ControlTemplate>
     </Setter>
 
@@ -116,24 +123,36 @@
     </Style>
 
     <Style Selector="^:not(:active):selected">
-      <Setter Property="Background" Value="{DynamicResource DockThemeBorderLowBrush}" />
+      <Setter Property="Background" Value="{DynamicResource bg-secondary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource border-primary}" />
       <Setter Property="Foreground" Value="{DynamicResource DockThemeForegroundBrush}" />
     </Style>
 
     <Style Selector="^:active:selected">
       <Setter Property="Background" Value="{DynamicResource DockApplicationAccentBrushLow}" />
       <Setter Property="Foreground" Value="{DynamicResource DockApplicationAccentForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource bg-accent}" />
     </Style>
 
-    <Style Selector="^:pointerover">
-      <Setter Property="Background" Value="{DynamicResource DockApplicationAccentBrushMed}" />
+    <Style Selector="^:not(:selected):pointerover">
+      <Setter Property="Background" Value="{DynamicResource bg-tertiary}" />
       <Setter Property="Foreground" Value="{DynamicResource DockApplicationAccentForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource bg-tertiary}" />
     </Style>
 
-    <Style Selector="^:selected:pointerover">
-      <Setter Property="Background" Value="{DynamicResource DockApplicationAccentBrushLow}" />
-      <Setter Property="Foreground" Value="{DynamicResource DockApplicationAccentForegroundBrush}" />
+    <Style Selector="^:active:not(:selected):pointerover /template/ Border#PART_DecorationBorder">
+      <Setter Property="BorderBrush" Value="{DynamicResource bg-accent}" />
     </Style>
+
+    <Style Selector="^:not(:active):not(:selected):pointerover /template/ Border#PART_DecorationBorder">
+      <Setter Property="BorderBrush" Value="{DynamicResource border-primary}" />
+    </Style>
+
+    <!--<Style Selector="^:selected:pointerover">
+      <Setter Property="Background" Value="{DynamicResource bg-tertiary}" />
+      <Setter Property="Foreground" Value="{DynamicResource DockApplicationAccentForegroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource bg-tertiary}" />
+    </Style>-->
 
   </ControlTheme>
 

@@ -22,7 +22,7 @@ public class ProportionalStackPanelSplitter : Thumb
     /// Defines the <see cref="Thickness"/> property.
     /// </summary>
     public static readonly StyledProperty<double> ThicknessProperty =
-        AvaloniaProperty.Register<ProportionalStackPanelSplitter, double>(nameof(Thickness), 4.0);
+        AvaloniaProperty.Register<ProportionalStackPanelSplitter, double>(nameof(Thickness), 8.0);
 
     /// <summary>
     /// Defines the MinimumProportionSize attached property.
